@@ -134,7 +134,7 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
         table->fill_num++;
     }
     else{
-        offset=(uint64_t)(overflow_addr-start_addr)+meta->overflow_num*sizeof(pm_table);
+        offset=FILE_SIZE*0.5+meta->overflow_num*sizeof(pm_table);
         if(offset<0.5*FILE_SIZE&&(!table->next_offset)){
             new_table=newOverflowTable(offset);
             table->next_offset=meta->overflow_num*sizeof(pm_table);
@@ -154,7 +154,7 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
                     break;
                 }
             }
-            offset=(uint64_t)(overflow_addr-start_addr)+meta->overflow_num*sizeof(pm_table);
+            offset=FILE_SIZE*0.5+meta->overflow_num*sizeof(pm_table);
             new_table=newOverflowTable(offset);
             table->next_offset=meta->overflow_num*sizeof(pm_table);
             new_table->kv_arr[0].key=key;
@@ -168,6 +168,7 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
             return -1;
         } 
     }
+    return 0;
 }
 
 /**
