@@ -76,6 +76,9 @@ uint64_t PMLHash::hashFunc(const uint64_t &key, const size_t &hash_size)
 pm_table *PMLHash::newOverflowTable(uint64_t &offset)
 {
     pm_table * new_overflow_table = new pm_table;
+    if(new_overflow_table==NULL){
+        return NULL;
+    }
     new_overflow_table -> next_offset = offset;
     meta -> overflow_num ++;
     return new_overflow_table;
@@ -96,6 +99,28 @@ pm_table *PMLHash::newOverflowTable(uint64_t &offset)
  */
 int PMLHash::insert(const uint64_t &key, const uint64_t &value)
 {
+    uint64_t hashvalue=hashFunc(key,HASH_SIZE);
+    pm_table *table=table_arr+(hashvalue-1)*sizeof(pm_table);
+    if(table->fill_num<TABLE_SIZE){
+        table->kv_arr[table->fill_num]->key=key;
+        table->kv_arr[table->fill_num]->value=value;
+        table->fill_num++;
+    }
+    else{
+        while(table->next_offset){
+            table+=table->next_offset;
+            if(table->fill_num<TABLE_SIZE){
+                table->kv_arr[table->fill_num]->key=key;
+                table->kv_arr[table->fill_num]->value=value;
+                table->fill_num++;
+                break;
+            }
+            else{
+                table+=table->next_offset;
+            }
+        }
+        
+    }
     return 0; //for test
 }
 
