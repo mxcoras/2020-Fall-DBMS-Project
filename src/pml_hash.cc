@@ -10,17 +10,12 @@
 PMLHash::PMLHash(const char *file_path)
 {
     int is_pmem;
-    start_addr = pmem_map_file(file_path, FILE_SIZE, PMEM_FILE_CREATE, 0666, &meta->size, &is_pmem);
+    size_t mapped_len;
 
-    if (start_addr == NULL)
+    if ((start_addr = pmem_map_file(file_path, FILE_SIZE, PMEM_FILE_CREATE, 0666, &mapped_len, &is_pmem)) == NULL)
     {
-        FILE *f = fopen(file_path, "w+");
-        fclose(f);
-        start_addr = pmem_map_file(file_path, FILE_SIZE, PMEM_FILE_CREATE, 0666, &meta->size, &is_pmem);
-        table_arr = (pm_table *)(start_addr + sizeof(metadata));
-        overflow_addr = start_addr + FILE_SIZE / 2;
-        meta = (metadata *)start_addr;
-        memset(meta, 0, sizeof(metadata));
+        perror("pmem_map_file");
+        exit(1);
     }
     else
     {
@@ -37,7 +32,40 @@ PMLHash::PMLHash(const char *file_path)
  */
 PMLHash::~PMLHash()
 {
+    pmem_persist(start_addr, FILE_SIZE);
     pmem_unmap(start_addr, FILE_SIZE);
+}
+
+/**
+ * PMLHash 
+ * 
+ * @param  {pm_table *} addr : address of hash table to be inserted
+ * @param  {entry} en        : the entry to insert
+ * @return {int}             : success: 0. fail: -1
+ * TODO
+ */
+int PMLHash::insert_bucket(pm_table *addr, entry en)
+{
+    pm_table *table = addr;
+    while (table->next_offset != 0)
+    {
+        table = (pm_table *)table->next_offset;
+    }
+    if (table->fill_num >= 16)
+    {
+        uint64_t offset = (FILE_SIZE / 2) + (meta->overflow_num * sizeof(pm_table));
+        table->next_offset = (uint64_t)newOverflowTable(offset);
+        if (table->next_offset == 0)
+        {
+            return -1;
+        }
+        
+        table = (pm_table *)table->next_offset;
+    }
+    table->kv_arr[table->fill_num] = en;
+    table->fill_num++;
+    table->next_offset = 0;
+    return 0;
 }
 
 /**
@@ -49,36 +77,62 @@ PMLHash::~PMLHash()
 void PMLHash::split()
 {
     // fill the split table
-    entry temp_arr[TABLE_SIZE];
-    int t1 = 0, t2 = 0;
-    memset(temp_arr, 0, sizeof(temp_arr));
-    int total = 2 << (meta->level);
-
-    for (int i = 0; i < table_arr[meta->level].fill_num; i++)
+    vector<entry> temp_arr;
+    int hash_num = (2 << (meta->level)) * HASH_SIZE * 2;
+    pm_table *split_table = &table_arr[meta->next];
+    while (true)
     {
-        int flag = hashFunc(table_arr[meta->next].kv_arr[i].key, total * 16);
-
-        // move to the new bucket
-        if (flag != meta->next)
+        for (uint64_t i = 0; i < split_table->fill_num; i++)
         {
-            int tag = hashFunc(table_arr[meta->next].kv_arr[i].key, 2 * 16 * total);
-            table_arr[tag].kv_arr[t1].key = table_arr[meta->next].kv_arr[i].key;
-            table_arr[tag].kv_arr[t1].value = table_arr[meta->next].kv_arr[i].value;
-            table_arr[tag].fill_num++;
-            t1++;
+            uint64_t tag = hashFunc(split_table->kv_arr[i].key, hash_num);
+            // move to the new bucket
+            if (tag != meta->next)
+            {
+                pm_table *new_table = &table_arr[tag];
+                entry en = {
+                    key : split_table->kv_arr[i].key,
+                    value : split_table->kv_arr[i].value
+                };
+                insert_bucket(new_table, en);
+            }
+            // stay in the old bucket, move to temp_arr first
+            else
+            {
+                entry en = {
+                    key : split_table->kv_arr[i].key,
+                    value : split_table->kv_arr[i].value
+                };
+                temp_arr.push_back(en);
+            }
         }
-        // stay in the old bucket, move to temp_arr first
-        else
-        {
-            temp_arr[t2].key = table_arr[meta->next].kv_arr[i].key;
-            temp_arr[t2].value = table_arr[meta->next].kv_arr[i].value;
-            t2++;
-        }
+        if (split_table->next_offset == 0)
+            break;
+        split_table = (pm_table *)(split_table->next_offset);
     }
 
     // fill the new table
+    split_table = &table_arr[meta->next];
+    split_table->fill_num = 0;
+    for (size_t i = 0; i < temp_arr.size(); i++)
+    {
+        if (split_table->fill_num >= 16)
+        {
+            split_table = (pm_table *)split_table->next_offset;
+            split_table->fill_num = 0;
+        }
+        split_table->kv_arr[split_table->fill_num] = temp_arr[i];
+    }
+    split_table->next_offset = 0;
 
     // update the next of metadata
+    meta->next++;
+    if (meta->next > ((2 << meta->level) * HASH_SIZE))
+    {
+        meta->next = 0;
+        meta->level++;
+    }
+
+    pmem_persist(start_addr, FILE_SIZE);
 }
 
 /**
@@ -105,6 +159,8 @@ uint64_t PMLHash::hashFunc(const uint64_t &key, const size_t &hash_size)
  */
 pm_table *PMLHash::newOverflowTable(uint64_t &offset)
 {
+    if(offset > FILE_SIZE)
+        return NULL;
     pm_table *new_overflow_table = (pm_table *)(start_addr + offset);
     return new_overflow_table;
 }
@@ -145,8 +201,11 @@ int PMLHash::search(const uint64_t &key, uint64_t &value)
     //search the t-th hash table
     for (int o = 0; o < len; o++)
     {
-        if (table_arr[t].kv_arr[o].value == value && table_arr[t].kv_arr[o].key == key)
+        if (table_arr[t].kv_arr[o].key == key)
+        {
+            value = table_arr[t].kv_arr[o].value;
             return 0;
+        }
     }
     //search the t-th overflow table
     //if the hash table dose not exist the value and the overflow table exists
@@ -156,8 +215,11 @@ int PMLHash::search(const uint64_t &key, uint64_t &value)
         int overflow_len = temp->fill_num;
         for (int o = 0; o < overflow_len; o++)
         {
-            if (temp->kv_arr[o].value == value)
+            if (temp->kv_arr[o].key == key)
+            {
+                value = temp->kv_arr[o].value;
                 return 0;
+            }
         }
     }
     return -1;
@@ -198,6 +260,7 @@ int PMLHash::update(const uint64_t &key, const uint64_t &value)
         if (table_arr[t].kv_arr[o].key == key)
         {
             table_arr[t].kv_arr[o].value = value;
+            pmem_persist(start_addr, FILE_SIZE);
             return 0;
         }
     }
@@ -212,6 +275,7 @@ int PMLHash::update(const uint64_t &key, const uint64_t &value)
             if (temp->kv_arr[o].key == key)
             {
                 temp->kv_arr[o].value = value;
+                pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
         }

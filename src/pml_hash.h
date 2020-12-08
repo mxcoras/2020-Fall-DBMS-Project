@@ -43,6 +43,7 @@ private:
     metadata *meta;      // virtual address of metadata
     pm_table *table_arr; // virtual address of hash table array
 
+    int insert_bucket(pm_table *addr, entry en);
     void split();
     uint64_t hashFunc(const uint64_t &key, const size_t &hash_size);
     pm_table *newOverflowTable(uint64_t &offset);

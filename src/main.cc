@@ -2,7 +2,7 @@
 
 int main()
 {
-    PMLHash hash("/home/pmem/file");
+    PMLHash hash("/mnt/pmemdir/file");
     for (uint64_t i = 1; i <= HASH_SIZE * TABLE_SIZE; i++)
     {
         hash.insert(i, i);
