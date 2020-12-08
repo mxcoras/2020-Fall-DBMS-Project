@@ -1,4 +1,5 @@
 #include "pml_hash.h"
+
 /**
  * PMLHash::PMLHash 
  * 
@@ -11,23 +12,24 @@ PMLHash::PMLHash(const char *file_path)
     int is_pmem;
     start_addr = pmem_map_file(file_path, FILE_SIZE, PMEM_FILE_CREATE, 0666, &meta->size, &is_pmem);
 
-    if(start_addr == NULL) {
+    if (start_addr == NULL)
+    {
         FILE *f = fopen(file_path, "w+");
         fclose(f);
         start_addr = pmem_map_file(file_path, FILE_SIZE, PMEM_FILE_CREATE, 0666, &meta->size, &is_pmem);
-        table_arr = (pm_table*)(start_addr + sizeof(metadata));
+        table_arr = (pm_table *)(start_addr + sizeof(metadata));
         overflow_addr = start_addr + FILE_SIZE / 2;
-        meta = (metadata*)start_addr;
+        meta = (metadata *)start_addr;
         memset(meta, 0, sizeof(metadata));
     }
-
-    else {
-    overflow_addr = start_addr + FILE_SIZE / 2;
-    table_arr = (pm_table*)(start_addr + sizeof(metadata));
-    meta = (metadata*)start_addr;
+    else
+    {
+        overflow_addr = start_addr + FILE_SIZE / 2;
+        table_arr = (pm_table *)(start_addr + sizeof(metadata));
+        meta = (metadata *)start_addr;
     }
-
 }
+
 /**
  * PMLHash::~PMLHash 
  * 
@@ -37,6 +39,7 @@ PMLHash::~PMLHash()
 {
     pmem_unmap(start_addr, FILE_SIZE);
 }
+
 /**
  * PMLHash 
  * 
@@ -49,31 +52,35 @@ void PMLHash::split()
     entry temp_arr[TABLE_SIZE];
     int t1 = 0, t2 = 0;
     memset(temp_arr, 0, sizeof(temp_arr));
-    int total = 2 << (meta -> level);
+    int total = 2 << (meta->level);
 
-    for(int i = 0; i < table_arr[meta -> level].fill_num; i++) {
-        int flag = hashFunc(table_arr[meta -> next].kv_arr[i].key, total * 16);
+    for (int i = 0; i < table_arr[meta->level].fill_num; i++)
+    {
+        int flag = hashFunc(table_arr[meta->next].kv_arr[i].key, total * 16);
 
-        //move to the new bucket
-        if(flag != meta -> next) {
-            int tag = hashFunc(table_arr[meta -> next].kv_arr[i].key, 2 * 16 * total);
-            table_arr[tag].kv_arr[t1].key = table_arr[meta -> next].kv_arr[i].key;
-            table_arr[tag].kv_arr[t1].value = table_arr[meta -> next].kv_arr[i].value;
+        // move to the new bucket
+        if (flag != meta->next)
+        {
+            int tag = hashFunc(table_arr[meta->next].kv_arr[i].key, 2 * 16 * total);
+            table_arr[tag].kv_arr[t1].key = table_arr[meta->next].kv_arr[i].key;
+            table_arr[tag].kv_arr[t1].value = table_arr[meta->next].kv_arr[i].value;
             table_arr[tag].fill_num++;
             t1++;
         }
-        //stay in the old bucket,move to temp_arr first
-        else {
-            temp_arr[t2].key = table_arr[meta -> next].kv_arr[i].key;
-            temp_arr[t2].value = table_arr[meta -> next].kv_arr[i].value;
+        // stay in the old bucket, move to temp_arr first
+        else
+        {
+            temp_arr[t2].key = table_arr[meta->next].kv_arr[i].key;
+            temp_arr[t2].value = table_arr[meta->next].kv_arr[i].value;
             t2++;
         }
     }
-    
+
     // fill the new table
 
     // update the next of metadata
 }
+
 /**
  * PMLHash 
  * 
@@ -86,7 +93,7 @@ void PMLHash::split()
  */
 uint64_t PMLHash::hashFunc(const uint64_t &key, const size_t &hash_size)
 {
-    return (key * 3) % hash_size; 
+    return (key * 3) % hash_size;
 }
 
 /**
@@ -98,7 +105,7 @@ uint64_t PMLHash::hashFunc(const uint64_t &key, const size_t &hash_size)
  */
 pm_table *PMLHash::newOverflowTable(uint64_t &offset)
 {
-    pm_table * new_overflow_table = (pm_table*)(start_addr + offset);
+    pm_table *new_overflow_table = (pm_table *)(start_addr + offset);
     return new_overflow_table;
 }
 
@@ -171,21 +178,26 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
  */
 int PMLHash::search(const uint64_t &key, uint64_t &value)
 {
-    size_t i = 2 << (meta -> level);
+    size_t i = 2 << (meta->level);
     uint64_t t = hashFunc(key, i * 16);
     int len = table_arr[t].fill_num;
 
     //search the t-th hash table
-    for(int o = 0; o < len; o++) {
-        if(table_arr[t].kv_arr[o].value == value && table_arr[t].kv_arr[o].key == key) return 0;
+    for (int o = 0; o < len; o++)
+    {
+        if (table_arr[t].kv_arr[o].value == value && table_arr[t].kv_arr[o].key == key)
+            return 0;
     }
     //search the t-th overflow table
     //if the hash table dose not exist the value and the overflow table exists
-    if(table_arr[t].fill_num == 16 && table_arr[t].next_offset != 0) {
-        pm_table *temp = (pm_table*) table_arr[t].next_offset;
-        int overflow_len = temp -> fill_num;
-        for(int o = 0; o < overflow_len; o++) {
-            if(temp -> kv_arr[o].value == value) return 0;
+    if (table_arr[t].fill_num == 16 && table_arr[t].next_offset != 0)
+    {
+        pm_table *temp = (pm_table *)table_arr[t].next_offset;
+        int overflow_len = temp->fill_num;
+        for (int o = 0; o < overflow_len; o++)
+        {
+            if (temp->kv_arr[o].value == value)
+                return 0;
         }
     }
     return -1;
@@ -216,25 +228,30 @@ int PMLHash::remove(const uint64_t &key)
  */
 int PMLHash::update(const uint64_t &key, const uint64_t &value)
 {
-    size_t i = 2 << (meta -> level);
+    size_t i = 2 << (meta->level);
     uint64_t t = hashFunc(key, i * 16);
     int len = table_arr[t].fill_num;
 
-    //search the t-th hash table
-    for(int o = 0; o < len; o++) {
-        if(table_arr[t].kv_arr[o].key == key) {
+    // search the t-th hash table
+    for (int o = 0; o < len; o++)
+    {
+        if (table_arr[t].kv_arr[o].key == key)
+        {
             table_arr[t].kv_arr[o].value = value;
             return 0;
         }
     }
-    //search the t-th overflow table
-    //if the hash table dose not exist the value and the overflow table exists
-    if(table_arr[t].fill_num == 16 && table_arr[t].next_offset != 0) {
-        pm_table *temp = (pm_table*) table_arr[t].next_offset;
-        int overflow_len = temp -> fill_num;
-        for(int o = 0; o < overflow_len; o++) {
-            if(temp -> kv_arr[o].key == key) {
-                temp -> kv_arr[o].value = value;
+    // search the t-th overflow table
+    // if the hash table dose not exist the value and the overflow table exists
+    if (table_arr[t].fill_num == 16 && table_arr[t].next_offset != 0)
+    {
+        pm_table *temp = (pm_table *)table_arr[t].next_offset;
+        int overflow_len = temp->fill_num;
+        for (int o = 0; o < overflow_len; o++)
+        {
+            if (temp->kv_arr[o].key == key)
+            {
+                temp->kv_arr[o].value = value;
                 return 0;
             }
         }
