@@ -127,6 +127,7 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
     uint64_t hashvalue=hashFunc(key,HASH_SIZE);
     pm_table *table=(pm_table*)(table_arr+hashvalue-1);
     uint64_t offset;
+    pm_table *new_table;
     if(table->fill_num<TABLE_SIZE){
         table->kv_arr[table->fill_num].key=key;
         table->kv_arr[table->fill_num].value=value;
@@ -135,7 +136,7 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
     else{
         offset=(uint64_t)(overflow_addr-start_addr)+meta->overflow_num*sizeof(pm_table);
         if(offset<0.5*FILE_SIZE&&(!table->next_offset)){
-            pm_table *new_table=newOverflowTable(offset);
+            new_table=newOverflowTable(offset);
             table->next_offset=meta->overflow_num*sizeof(pm_table);
             new_table->kv_arr[0].key=key;
             new_table->kv_arr[0].value=value;
@@ -152,19 +153,21 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
                     table->fill_num++;
                     break;
                 }
-                else{//create a new table
-                    offset=(uint64_t)(overflow_addr-start_addr)+meta->overflow_num*sizeof(pm_table);
-                    table+=table->next_offset;
-                    offset+=table->next_offset;
-                }
             }
+            offset=(uint64_t)(overflow_addr-start_addr)+meta->overflow_num*sizeof(pm_table);
+            new_table=newOverflowTable(offset);
+            table->next_offset=meta->overflow_num*sizeof(pm_table);
+            new_table->kv_arr[0].key=key;
+            new_table->kv_arr[0].value=value;
+            new_table->fill_num++;
+            new_table->next_offset=0;
+            meta->overflow_num++;
         }
-        else
+        else if(offset>=0.5*FILE_SIZE)
         {
             return -1;
         } 
     }
-    return 0; //for test
 }
 
 /**
@@ -252,6 +255,7 @@ int PMLHash::update(const uint64_t &key, const uint64_t &value)
             if (temp->kv_arr[o].key == key)
             {
                 temp->kv_arr[o].value = value;
+
                 return 0;
             }
         }
