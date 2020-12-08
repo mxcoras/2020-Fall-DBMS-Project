@@ -118,34 +118,39 @@ pm_table *PMLHash::newOverflowTable(uint64_t &offset)
 int PMLHash::insert(const uint64_t &key, const uint64_t &value)
 {
     uint64_t hashvalue=hashFunc(key,HASH_SIZE);
-    uint64_t offset;
     pm_table *table=(pm_table*)(table_arr+hashvalue-1);
+    uint64_t offset;
     if(table->fill_num<TABLE_SIZE){
         table->kv_arr[table->fill_num].key=key;
         table->kv_arr[table->fill_num].value=value;
         table->fill_num++;
     }
     else{
-        while(table->next_offset){
-            table+=table->next_offset;
-            offset+=table->next_offset;
-            if(table->fill_num<TABLE_SIZE){
-                table->kv_arr[table->fill_num].key=key;
-                table->kv_arr[table->fill_num].value=value;
-                table->fill_num++;
-                break;
-            }
-            else{
-                table+=table->next_offset;
-                offset+=table->next_offset;
-            }
+        offset=(uint64_t)(overflow_addr-start_addr)+meta->overflow_num*sizeof(pm_table);
+        if(offset<0.5*FILE_SIZE&&(!table->next_offset)){
+            pm_table *new_table=newOverflowTable(offset);
+            table->next_offset=meta->overflow_num*sizeof(pm_table);
+            new_table->kv_arr[0].key=key;
+            new_table->kv_arr[0].value=value;
+            new_table->fill_num++;
+            new_table->next_offset=0;
+            meta->overflow_num++;
         }
-        if(offset<0.5*FILE_SIZE){
-            table=newOverflowTable(offset);
-            table->next_offset=0;
-            table->kv_arr[0].key=key;
-            table->kv_arr[0].value=value;
-            table->fill_num++;
+        else if(offset<0.5*FILE_SIZE&&(table->next_offset)){
+            while(table->next_offset){//whether overflow table exists
+                table=(pm_table*)(overflow_addr+table->next_offset);
+                if(table->fill_num<TABLE_SIZE){
+                    table->kv_arr[table->fill_num].key=key;
+                    table->kv_arr[table->fill_num].value=value;
+                    table->fill_num++;
+                    break;
+                }
+                else{//create a new table
+                    offset=(uint64_t)(overflow_addr-start_addr)+meta->overflow_num*sizeof(pm_table);
+                    table+=table->next_offset;
+                    offset+=table->next_offset;
+                }
+            }
         }
         else
         {
