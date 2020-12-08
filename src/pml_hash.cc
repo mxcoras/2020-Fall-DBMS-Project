@@ -125,7 +125,7 @@ pm_table *PMLHash::newOverflowTable(uint64_t &offset)
 int PMLHash::insert(const uint64_t &key, const uint64_t &value)
 {
     uint64_t hashvalue=hashFunc(key,HASH_SIZE);
-    pm_table *table=(pm_table*)(table_arr+hashvalue-1);
+    pm_table *table=(pm_table*)(table_arr+sizeof(pm_table)*(hashvalue-1));
     uint64_t offset;
     pm_table *new_table;
     if(table->fill_num<TABLE_SIZE){
@@ -218,6 +218,51 @@ int PMLHash::search(const uint64_t &key, uint64_t &value)
  */
 int PMLHash::remove(const uint64_t &key)
 {
+    uint64_t keyhash=hashFunc(key,HASH_SIZE);//find hash table
+    pm_table *remove_table=(pm_table*)(table_arr+sizeof(pm_table)*(keyhash-1));
+    int flag=0;
+    int time=0;
+    if(!remove_table->next_offset){
+        for(int i=0;i<TABLE_SIZE;i++){
+            if(remove_table->kv_arr[i].key==key){
+                remove_table->kv_arr[i].key==remove_table->kv_arr[TABLE_SIZE-1-time].key;
+                remove_table->kv_arr[i].value==remove_table->kv_arr[TABLE_SIZE-1-time].value;
+                time++;
+                flag=1;
+                remove_table->fill_num--;
+            }
+        }
+    }
+    else{
+        pm_table *tb=remove_table;
+        for(int i=0;i<TABLE_SIZE;i++){
+            if(tb->kv_arr[i].key==key){
+                tb->kv_arr[i].key==tb->kv_arr[TABLE_SIZE-1-time].key;
+                tb->kv_arr[i].value==tb->kv_arr[TABLE_SIZE-1-time].value;
+                time++;
+                flag=1;
+                tb->fill_num--;
+            }
+        }
+        tb=(pm_table*)(overflow_addr+remove_table->next_offset);
+        while(tb){
+            time=0;
+            for(int i=0;i<TABLE_SIZE;i++){
+                if (tb->kv_arr[i].key==key)
+                {
+                    tb->kv_arr[i].key==tb->kv_arr[TABLE_SIZE-1-time].key;
+                    tb->kv_arr[i].value==tb->kv_arr[TABLE_SIZE-1-time].value;
+                    time++;
+                    flag=1;
+                }
+                
+            }
+            tb=(pm_table*)(overflow_addr+tb->next_offset);
+        }
+    }
+    if(!flag){
+        return -1;
+    }
     return 0; //for test
 }
 
