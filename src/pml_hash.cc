@@ -203,32 +203,25 @@ int PMLHash::search(const uint64_t &key, uint64_t &value)
 {
     size_t i = 2 << (meta->level);
     uint64_t t = hashFunc(key, i * 16);
-    int len = table_arr[t].fill_num;
+    pm_table *p = &table_arr[t];
 
-    //search the t-th hash table
-    for (int o = 0; o < len; o++)
+    while(true) {
+    //search the temp pm_table;    
+    for (int o = 0; o < p -> fill_num; o++)
     {
-        if (table_arr[t].kv_arr[o].key == key)
+        if (p -> kv_arr[o].key == key && p -> kv_arr[o].value == value)
         {
-            value = table_arr[t].kv_arr[o].value;
             return 0;
         }
     }
-    //search the t-th overflow table
-    //if the hash table dose not exist the value and the overflow table exists
-    if (table_arr[t].fill_num == 16 && table_arr[t].next_offset != 0)
-    {
-        pm_table *temp = (pm_table *)table_arr[t].next_offset;
-        int overflow_len = temp->fill_num;
-        for (int o = 0; o < overflow_len; o++)
-        {
-            if (temp->kv_arr[o].key == key)
-            {
-                value = temp->kv_arr[o].value;
-                return 0;
-            }
-        }
+
+    //if this table is full-filled, switch to the next_offset
+    if(p -> next_offset) {
+        p = (pm_table*)p->next_offset;
     }
+    //else break the loop
+    else break;
+  }
     return -1;
 }
 
@@ -243,60 +236,39 @@ int PMLHash::search(const uint64_t &key, uint64_t &value)
  */
 int PMLHash::remove(const uint64_t &key)
 {
-    uint64_t keyhash = hashFunc(key, HASH_SIZE); //find hash table
-    pm_table *remove_table = (pm_table *)(table_arr + sizeof(pm_table) * (keyhash - 1));
-    int flag = 0;
-    int time = 0;
-    if (!remove_table->next_offset)
-    {
-        for (int i = 0; i < TABLE_SIZE; i++)
-        {
-            if (remove_table->kv_arr[i].key == key)
-            {
-                remove_table->kv_arr[i].key == remove_table->kv_arr[TABLE_SIZE - 1 - time].key;
-                remove_table->kv_arr[i].value == remove_table->kv_arr[TABLE_SIZE - 1 - time].value;
-                time++;
-                flag = 1;
-                remove_table->fill_num--;
-            }
-        }
-    }
-    else
-    {
-        pm_table *tb = remove_table;
-        for (int i = 0; i < TABLE_SIZE; i++)
-        {
-            if (tb->kv_arr[i].key == key)
-            {
-                tb->kv_arr[i].key == tb->kv_arr[TABLE_SIZE - 1 - time].key;
-                tb->kv_arr[i].value == tb->kv_arr[TABLE_SIZE - 1 - time].value;
-                time++;
-                flag = 1;
-                tb->fill_num--;
-            }
-        }
-        tb = (pm_table *)(overflow_addr + remove_table->next_offset);
-        while (tb)
-        {
-            time = 0;
-            for (int i = 0; i < TABLE_SIZE; i++)
-            {
-                if (tb->kv_arr[i].key == key)
-                {
-                    tb->kv_arr[i].key == tb->kv_arr[TABLE_SIZE - 1 - time].key;
-                    tb->kv_arr[i].value == tb->kv_arr[TABLE_SIZE - 1 - time].value;
-                    time++;
-                    flag = 1;
+    uint64_t keyhash = hashFunc(key, HASH_SIZE * (2 << (meta->level))); //find hash table
+    //pm_table *remove_table = (pm_table *)(table_arr + sizeof(pm_table) * keyhash);
+    pm_table *p = &table_arr[keyhash], *temp, *previous_table;
+    int tag;
+    while(true) {
+        int len = p -> fill_num;
+        for(int i = 0; i < len; i++) {
+            if(p -> kv_arr[i].key == key) {
+                tag = i;
+                temp = p;
+
+                //move to the last pm_table
+                while(p -> next_offset) {
+                    previous_table = p;
+                    p = (pm_table*) p -> next_offset;
                 }
+                //move the last element to the tagged place, and the last pm_table delete the last one element
+                temp -> kv_arr[tag].key = p -> kv_arr[p -> fill_num - 1].key;
+                temp -> kv_arr[tag].value = p -> kv_arr[p -> fill_num - 1].value;
+                p -> fill_num--;
+
+                //the last pm_table is empty and need to be removed 
+                if(p -> fill_num == 0) {
+                    previous_table -> next_offset = 0;
+                }
+                return 0;
             }
-            tb = (pm_table *)(overflow_addr + tb->next_offset);
         }
+        if(p -> next_offset == 0) break;
+        previous_table = p;
+        p = (pm_table*) p -> next_offset;
     }
-    if (!flag)
-    {
-        return -1;
-    }
-    return 0; //for test
+    return -1;
 }
 
 /**
@@ -312,33 +284,25 @@ int PMLHash::update(const uint64_t &key, const uint64_t &value)
 {
     size_t i = 2 << (meta->level);
     uint64_t t = hashFunc(key, i * 16);
-    int len = table_arr[t].fill_num;
+    pm_table *p = &table_arr[t];
 
-    // search the t-th hash table
-    for (int o = 0; o < len; o++)
+    while(true) {
+    //search the temp pm_table;    
+    for (int o = 0; o < p -> fill_num; o++)
     {
-        if (table_arr[t].kv_arr[o].key == key)
+        if (p -> kv_arr[o].key == key)
         {
-            table_arr[t].kv_arr[o].value = value;
-            pmem_persist(start_addr, FILE_SIZE);
+            p -> kv_arr[o].value = value;
             return 0;
         }
     }
-    // search the t-th overflow table
-    // if the hash table dose not exist the value and the overflow table exists
-    if (table_arr[t].fill_num == 16 && table_arr[t].next_offset != 0)
-    {
-        pm_table *temp = (pm_table *)table_arr[t].next_offset;
-        int overflow_len = temp->fill_num;
-        for (int o = 0; o < overflow_len; o++)
-        {
-            if (temp->kv_arr[o].key == key)
-            {
-                temp->kv_arr[o].value = value;
-                pmem_persist(start_addr, FILE_SIZE);
-                return 0;
-            }
-        }
+
+    //if this table is full-filled, switch to the next_offset
+    if(p -> next_offset) {
+        p = (pm_table*)p->next_offset;
     }
+    //else break the loop
+    else break;
+  }
     return -1;
 }
