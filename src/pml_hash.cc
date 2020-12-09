@@ -59,7 +59,7 @@ int PMLHash::insert_bucket(pm_table *addr, entry en)
         {
             return -1;
         }
-        
+
         table = (pm_table *)table->next_offset;
     }
     table->kv_arr[table->fill_num] = en;
@@ -159,7 +159,7 @@ uint64_t PMLHash::hashFunc(const uint64_t &key, const size_t &hash_size)
  */
 pm_table *PMLHash::newOverflowTable(uint64_t &offset)
 {
-    if(offset > FILE_SIZE)
+    if (offset > (FILE_SIZE - sizeof(pm_table)))
         return NULL;
     pm_table *new_overflow_table = (pm_table *)(start_addr + offset);
     return new_overflow_table;
@@ -180,7 +180,14 @@ pm_table *PMLHash::newOverflowTable(uint64_t &offset)
  */
 int PMLHash::insert(const uint64_t &key, const uint64_t &value)
 {
-    return 0; //for test
+    int hash_num = (2 << (meta->level)) * HASH_SIZE;
+    uint64_t hash_value = hashFunc(key, hash_num);
+    pm_table *table = (pm_table *)(table_arr + sizeof(pm_table) * hash_value);
+    entry en{
+        key : key,
+        value : value
+    };
+    return insert_bucket(table, en);
 }
 
 /**
@@ -236,6 +243,59 @@ int PMLHash::search(const uint64_t &key, uint64_t &value)
  */
 int PMLHash::remove(const uint64_t &key)
 {
+    uint64_t keyhash = hashFunc(key, HASH_SIZE); //find hash table
+    pm_table *remove_table = (pm_table *)(table_arr + sizeof(pm_table) * (keyhash - 1));
+    int flag = 0;
+    int time = 0;
+    if (!remove_table->next_offset)
+    {
+        for (int i = 0; i < TABLE_SIZE; i++)
+        {
+            if (remove_table->kv_arr[i].key == key)
+            {
+                remove_table->kv_arr[i].key == remove_table->kv_arr[TABLE_SIZE - 1 - time].key;
+                remove_table->kv_arr[i].value == remove_table->kv_arr[TABLE_SIZE - 1 - time].value;
+                time++;
+                flag = 1;
+                remove_table->fill_num--;
+            }
+        }
+    }
+    else
+    {
+        pm_table *tb = remove_table;
+        for (int i = 0; i < TABLE_SIZE; i++)
+        {
+            if (tb->kv_arr[i].key == key)
+            {
+                tb->kv_arr[i].key == tb->kv_arr[TABLE_SIZE - 1 - time].key;
+                tb->kv_arr[i].value == tb->kv_arr[TABLE_SIZE - 1 - time].value;
+                time++;
+                flag = 1;
+                tb->fill_num--;
+            }
+        }
+        tb = (pm_table *)(overflow_addr + remove_table->next_offset);
+        while (tb)
+        {
+            time = 0;
+            for (int i = 0; i < TABLE_SIZE; i++)
+            {
+                if (tb->kv_arr[i].key == key)
+                {
+                    tb->kv_arr[i].key == tb->kv_arr[TABLE_SIZE - 1 - time].key;
+                    tb->kv_arr[i].value == tb->kv_arr[TABLE_SIZE - 1 - time].value;
+                    time++;
+                    flag = 1;
+                }
+            }
+            tb = (pm_table *)(overflow_addr + tb->next_offset);
+        }
+    }
+    if (!flag)
+    {
+        return -1;
+    }
     return 0; //for test
 }
 
