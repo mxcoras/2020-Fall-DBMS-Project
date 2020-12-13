@@ -32,7 +32,6 @@ PMLHash::PMLHash(const char *file_path)
  */
 PMLHash::~PMLHash()
 {
-    pmem_persist(start_addr, FILE_SIZE);
     pmem_unmap(start_addr, FILE_SIZE);
 }
 
@@ -187,6 +186,7 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
         key : key,
         value : value
     };
+    pmem_persist(start_addr, FILE_SIZE);
     return insert_bucket(table, en);
 }
 
@@ -268,6 +268,7 @@ int PMLHash::remove(const uint64_t &key)
                 {
                     previous_table->next_offset = 0;
                 }
+                pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
         }
@@ -276,6 +277,7 @@ int PMLHash::remove(const uint64_t &key)
         previous_table = p;
         p = (pm_table *)p->next_offset;
     }
+
     return -1;
 }
 
@@ -302,6 +304,7 @@ int PMLHash::update(const uint64_t &key, const uint64_t &value)
             if (p->kv_arr[o].key == key)
             {
                 p->kv_arr[o].value = value;
+                pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
         }
