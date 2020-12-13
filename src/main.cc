@@ -33,7 +33,6 @@ int main()
     for(uint64_t i = HASH_SIZE + 1; i <= 2 * HASH_SIZE; i++)
     {
         if(hash.update(i, i + 1) == 0) cout << "update success" << endl;
-
     }
     return 0;
 }
