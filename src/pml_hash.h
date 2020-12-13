@@ -17,6 +17,7 @@ typedef struct metadata
     size_t level;          // level of hash
     uint64_t next;         // the index of the next split hash table
     uint64_t overflow_num; // amount of overflow hash tables
+    uint64_t total;        // the number of total elements
 } metadata;
 
 // data entry of hash table

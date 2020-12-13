@@ -55,9 +55,7 @@ int PMLHash::insert_bucket(pm_table *addr, entry en)
         uint64_t offset = (FILE_SIZE / 2) + (meta->overflow_num * sizeof(pm_table));
         table->next_offset = (uint64_t)newOverflowTable(offset);
         if (table->next_offset == 0)
-        {
             return -1;
-        }
 
         table = (pm_table *)table->next_offset;
     }
@@ -77,7 +75,7 @@ void PMLHash::split()
 {
     // fill the split table
     vector<entry> temp_arr;
-    int hash_num = meta->level == 0 ? 1 : (2 << (meta->level)) * HASH_SIZE * 2;
+    int hash_num = (meta->level == 0 ? 1 : (2 << meta->level)) * HASH_SIZE * 2;
     pm_table *split_table = &table_arr[meta->next];
     while (true)
     {
@@ -119,13 +117,14 @@ void PMLHash::split()
             split_table = (pm_table *)split_table->next_offset;
             split_table->fill_num = 0;
         }
-        split_table->kv_arr[split_table->fill_num] = temp_arr[i];
+        split_table->kv_arr[split_table->fill_num++] = temp_arr[i];
     }
     split_table->next_offset = 0;
 
     // update the next of metadata
     meta->next++;
-    if (meta->next > (uint64_t)((meta->level == 0 ? 1 : (2 << meta->level)) * HASH_SIZE))
+    meta->size++; //num of hash table add 1;
+    if (meta->next == (uint64_t)((meta->level == 0 ? 1 : (2 << meta->level)) * HASH_SIZE))
     {
         meta->next = 0;
         meta->level++;
@@ -186,6 +185,9 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
         key : key,
         value : value
     };
+    meta->total++;
+    if (double(meta->total) / double(TABLE_SIZE * meta->size) < 0.9)
+        split();
     pmem_persist(start_addr, FILE_SIZE);
     return insert_bucket(table, en);
 }
@@ -218,9 +220,7 @@ int PMLHash::search(const uint64_t &key, uint64_t &value)
         }
         //if this table is full-filled, switch to the next_offset
         if (p->next_offset)
-        {
             p = (pm_table *)p->next_offset;
-        }
         //else break the loop
         else
             break;
@@ -245,13 +245,14 @@ int PMLHash::remove(const uint64_t &key)
     int tag;
     while (true)
     {
-        int len = p->fill_num;
-        for (int i = 0; i < len; i++)
+        for (int i = 0; i < p->fill_num; i++)
         {
             if (p->kv_arr[i].key == key)
             {
+                //move the last element to the tag place, and the total of elements substract 1;
                 tag = i;
                 temp = p;
+                meta->total--;
                 //move to the last pm_table
                 while (p->next_offset)
                 {
@@ -265,9 +266,8 @@ int PMLHash::remove(const uint64_t &key)
 
                 //the last pm_table is empty and need to be removed
                 if (p->fill_num == 0)
-                {
                     previous_table->next_offset = 0;
-                }
+
                 pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
@@ -292,18 +292,17 @@ int PMLHash::remove(const uint64_t &key)
  */
 int PMLHash::update(const uint64_t &key, const uint64_t &value)
 {
-    size_t i = 2 << (meta->level);
-    uint64_t t = hashFunc(key, i * 16);
-    pm_table *p = &table_arr[t];
+    int hash_num = (meta->level == 0 ? 1 : (2 << meta->level)) * HASH_SIZE;
+    pm_table *p = &table_arr[hash_num];
 
     while (true)
     {
         //search the temp pm_table;
-        for (uint64_t o = 0; o < p->fill_num; o++)
+        for (uint64_t i = 0; i < p->fill_num; i++)
         {
-            if (p->kv_arr[o].key == key)
+            if (p->kv_arr[i].key == key)
             {
-                p->kv_arr[o].value = value;
+                p->kv_arr[i].value = value;
                 pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
@@ -311,9 +310,7 @@ int PMLHash::update(const uint64_t &key, const uint64_t &value)
 
         //if this table is full-filled, switch to the next_offset
         if (p->next_offset)
-        {
             p = (pm_table *)p->next_offset;
-        }
         //else break the loop
         else
             break;
