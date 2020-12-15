@@ -188,8 +188,10 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
     meta->total++;
     if (double(meta->total) / double(TABLE_SIZE * meta->size) < 0.9)
         split();
-    pmem_persist(start_addr, FILE_SIZE);
-    return insert_bucket(table, en);
+    int flag = insert_bucket(table, en);
+    if(flag == 0)    
+       pmem_persist(start_addr, FILE_SIZE);
+    return flag;
 }
 
 /**
