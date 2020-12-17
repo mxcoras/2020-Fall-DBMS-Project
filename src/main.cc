@@ -3,9 +3,11 @@
 int main()
 {
     PMLHash hash("/mnt/pmemdir/file");
-    for (uint64_t i = 1; i <= HASH_SIZE * TABLE_SIZE; i++)
+    for (uint64_t i = 1; i <= HASH_SIZE * TABLE_SIZE * 2; i++)
     {
         hash.insert(i, i);
+        cout << "  key: " << i << endl;
+        // hash.insert(i, i);
     }
     // for (uint64_t i = 1; i <= HASH_SIZE; i++)
     // {
@@ -18,7 +20,7 @@ int main()
     // {
     //     hash.insert(i, i);
     // }
-    for (uint64_t i = 1; i <= HASH_SIZE * TABLE_SIZE; i++)
+    for (uint64_t i = HASH_SIZE * TABLE_SIZE; i <= HASH_SIZE * TABLE_SIZE * 2; i++)
     {
         uint64_t val;
         if (hash.search(i, val) == -1)

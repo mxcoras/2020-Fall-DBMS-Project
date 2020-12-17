@@ -22,6 +22,8 @@ PMLHash::PMLHash(const char *file_path)
         overflow_addr = (void *)((uint64_t)start_addr + FILE_SIZE / 2);
         table_arr = (pm_table *)((uint64_t)start_addr + sizeof(metadata));
         meta = (metadata *)start_addr;
+        if (meta->size == 0)
+            meta->size = 16;
     }
 }
 
@@ -59,6 +61,7 @@ int PMLHash::insert_bucket(pm_table *addr, entry en)
     table->kv_arr[table->fill_num] = en;
     table->fill_num++;
     table->next_offset = 0;
+
     pmem_persist(start_addr, FILE_SIZE);
     return 0;
 }
@@ -125,6 +128,7 @@ void PMLHash::split()
         meta->next = 0;
         meta->level++;
     }
+    cout << "split\n";
     pmem_persist(start_addr, FILE_SIZE);
 }
 
@@ -180,9 +184,9 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
         value : value
     };
     meta->total++;
+    int flag = insert_bucket(table, en);
     if ((double)(meta->total) / (double)(TABLE_SIZE * meta->size) > 0.9)
         split();
-    int flag = insert_bucket(table, en);
     if(flag == 0)    
        pmem_persist(start_addr, FILE_SIZE);
     return flag;
@@ -200,6 +204,8 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
 int PMLHash::search(const uint64_t &key, uint64_t &value)
 {
     uint64_t hash_value = hashFunc(key, (1 << meta->level) * HASH_SIZE);
+    if (hash_value < meta->next)
+        hash_value = hashFunc(key, (1 << meta->level) * HASH_SIZE * 2);
     pm_table *p = &table_arr[hash_value];
     while (true)
     {
