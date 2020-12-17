@@ -7,32 +7,31 @@ int main()
     {
         hash.insert(i, i);
     }
-    for (uint64_t i = 1; i <= HASH_SIZE; i++)
+    // for (uint64_t i = 1; i <= HASH_SIZE; i++)
+    // {
+    //     uint64_t val;
+    //     hash.search(i, val);
+    //     cout << "key: " << i << "\nvalue: " << val << endl;
+    // }
+    // for (uint64_t i = HASH_SIZE * TABLE_SIZE + 1;
+    //      i <= (HASH_SIZE + 1) * TABLE_SIZE; i++)
+    // {
+    //     hash.insert(i, i);
+    // }
+    for (uint64_t i = 1; i <= HASH_SIZE * TABLE_SIZE; i++)
     {
         uint64_t val;
-        hash.search(i, val);
-        cout << "key: " << i << "\nvalue: " << val << endl;
+        if (hash.search(i, val) == -1)
+            cout << "key: " << i << endl;
     }
-    for (uint64_t i = HASH_SIZE * TABLE_SIZE + 1;
-         i <= (HASH_SIZE + 1) * TABLE_SIZE; i++)
-    {
-        hash.insert(i, i);
-    }
-    for (uint64_t i = HASH_SIZE * TABLE_SIZE + 1;
-         i <= (HASH_SIZE + 1) * TABLE_SIZE; i++)
-    {
-        uint64_t val;
-        hash.search(i, val);
-        cout << "key: " << i << "\nvalue: " << val << endl;
-    }
-    for(uint64_t i = 1; i <= HASH_SIZE; i++)
-    {
-        hash.remove(i);
-        if(hash.search(i,i) == -1) cout << "remove " << i << "success" << endl;
-    }
-    for(uint64_t i = HASH_SIZE + 1; i <= 2 * HASH_SIZE; i++)
-    {
-        if(hash.update(i, i + 1) == 0) cout << "update success" << endl;
-    }
+    // for(uint64_t i = 1; i <= HASH_SIZE; i++)
+    // {
+    //     hash.remove(i);
+    //     if(hash.search(i,i) == -1) cout << "remove " << i << "success" << endl;
+    // }
+    // for(uint64_t i = HASH_SIZE + 1; i <= 2 * HASH_SIZE; i++)
+    // {
+    //     if(hash.update(i, i + 1) == 0) cout << "update success" << endl;
+    // }
     return 0;
 }

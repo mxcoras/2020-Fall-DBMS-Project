@@ -59,6 +59,7 @@ int PMLHash::insert_bucket(pm_table *addr, entry en)
     table->kv_arr[table->fill_num] = en;
     table->fill_num++;
     table->next_offset = 0;
+    pmem_persist(start_addr, FILE_SIZE);
     return 0;
 }
 
@@ -103,7 +104,7 @@ void PMLHash::split()
             break;
         split_table = (pm_table *)(split_table->next_offset);
     }
-    // fill the new table
+    // fill the old table
     split_table = &table_arr[meta->next];
     split_table->fill_num = 0;
     for (size_t i = 0; i < temp_arr.size(); i++)
@@ -244,9 +245,7 @@ int PMLHash::remove(const uint64_t &key)
             if (p->kv_arr[i].key == key)
             {
                 //move the last element to the tag place, and the total of elements substract 1;
-                tag = i;
                 temp = p;
-                meta->total--;
                 //move to the last pm_table
                 while (p->next_offset)
                 {
@@ -254,9 +253,10 @@ int PMLHash::remove(const uint64_t &key)
                     p = (pm_table *)p->next_offset;
                 }
                 //move the last element to the tagged place, and the last pm_table delete the last one element
-                temp->kv_arr[tag].key = p->kv_arr[p->fill_num - 1].key;
-                temp->kv_arr[tag].value = p->kv_arr[p->fill_num - 1].value;
+                temp->kv_arr[i].key = p->kv_arr[p->fill_num - 1].key;
+                temp->kv_arr[i].value = p->kv_arr[p->fill_num - 1].value;
                 p->fill_num--;
+                meta->total--;
                 //the last pm_table is empty and need to be removed
                 if (p->fill_num == 0)
                     previous_table->next_offset = 0;
@@ -283,8 +283,8 @@ int PMLHash::remove(const uint64_t &key)
  */
 int PMLHash::update(const uint64_t &key, const uint64_t &value)
 {
-    uint64_t t = hashFunc(key, (1 << meta->level) * HASH_SIZE);
-    pm_table *p = &table_arr[t];
+    uint64_t hash_value = hashFunc(key, (1 << meta->level) * HASH_SIZE);
+    pm_table *p = &table_arr[hash_value];
     while (true)
     {
         //search the temp pm_table;
