@@ -33,6 +33,7 @@ PMLHash::PMLHash(const char *file_path)
  */
 PMLHash::~PMLHash()
 {
+    pmem_persist(start_addr, FILE_SIZE);
     pmem_unmap(start_addr, FILE_SIZE);
 }
 
@@ -61,7 +62,7 @@ int PMLHash::insert_bucket(pm_table *addr, entry en)
     table->kv_arr[table->fill_num] = en;
     table->fill_num++;
     table->next_offset = 0;
-    pmem_persist(start_addr, FILE_SIZE);
+    // pmem_persist(start_addr, FILE_SIZE);
     return 0;
 }
 
@@ -126,7 +127,7 @@ void PMLHash::split()
         meta->next = 0;
         meta->level++;
     }
-    pmem_persist(start_addr, FILE_SIZE);
+    // pmem_persist(start_addr, FILE_SIZE);
 }
 
 /**
@@ -187,8 +188,8 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
     int flag = insert_bucket(table, en);
     if ((double)(meta->total) / (double)(TABLE_SIZE * meta->size) > 0.9)
         split();
-    if (flag == 0)
-        pmem_persist(start_addr, FILE_SIZE);
+    // if (flag == 0)
+        // pmem_persist(start_addr, FILE_SIZE);
     return flag;
 }
 
@@ -267,7 +268,7 @@ int PMLHash::remove(const uint64_t &key)
                 //the last pm_table is empty and need to be removed
                 if (p->fill_num == 0)
                     previous_table->next_offset = 0;
-                pmem_persist(start_addr, FILE_SIZE);
+                // pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
         }
@@ -302,7 +303,7 @@ int PMLHash::update(const uint64_t &key, const uint64_t &value)
             if (p->kv_arr[i].key == key)
             {
                 p->kv_arr[i].value = value;
-                pmem_persist(start_addr, FILE_SIZE);
+                // pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
         }
