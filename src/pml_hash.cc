@@ -52,16 +52,18 @@ int PMLHash::insert_bucket(pm_table *addr, entry en)
         table = (pm_table *)table->next_offset;
     if (table->fill_num >= 16)
     {
+        pm_table* p;
         uint64_t offset = (FILE_SIZE / 2) + (meta->overflow_num * sizeof(pm_table));
-        table->next_offset = (uint64_t)newOverflowTable(offset);
-        if (table->next_offset == 0)
+        p = newOverflowTable(offset);
+        if (p == nullptr)
             return -1;
+        table->next_offset = (uint64_t)p;
         table = (pm_table *)table->next_offset;
     }
     table->kv_arr[table->fill_num] = en;
     table->fill_num++;
     table->next_offset = 0;
-    pmem_persist(start_addr, FILE_SIZE);
+    //pmem_persist(start_addr, FILE_SIZE);
     return 0;
 }
 
@@ -126,7 +128,7 @@ void PMLHash::split()
         meta->next = 0;
         meta->level++;
     }
-    pmem_persist(start_addr, FILE_SIZE);
+    //pmem_persist(start_addr, FILE_SIZE);
 }
 
 /**
@@ -154,7 +156,7 @@ uint64_t PMLHash::hashFunc(const uint64_t &key, const size_t &hash_size)
 pm_table *PMLHash::newOverflowTable(uint64_t &offset)
 {
     if (offset > (FILE_SIZE - sizeof(pm_table)))
-        return NULL;
+        return nullptr;
     pm_table *new_overflow_table = (pm_table *)((uint64_t)start_addr + offset);
     meta->overflow_num++;
     return new_overflow_table;
@@ -186,7 +188,9 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
     meta->total++;
     int flag = insert_bucket(table, en);
     if ((double)(meta->total) / (double)(TABLE_SIZE * meta->size) > 0.9)
-        #pragma omp critical
+// #ifdef DEBUG
+// #pragma omp critical
+// #endif
         split();
     return flag;
 }
@@ -259,6 +263,9 @@ int PMLHash::remove(const uint64_t &key)
                     p = (pm_table *)p->next_offset;
                 }
                 //move the last element to the tagged place, and the last pm_table delete the last one element
+#ifdef DEBUG
+                omp_set_lock(&lock);
+#endif
                 temp->kv_arr[i].key = p->kv_arr[p->fill_num - 1].key;
                 temp->kv_arr[i].value = p->kv_arr[p->fill_num - 1].value;
                 p->fill_num--;
@@ -266,7 +273,10 @@ int PMLHash::remove(const uint64_t &key)
                 //the last pm_table is empty and need to be removed
                 if (p->fill_num == 0)
                     previous_table->next_offset = 0;
-                pmem_persist(start_addr, FILE_SIZE);
+#ifdef DEBUG
+                omp_unset_lock(&lock);
+#endif
+                //pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
         }
@@ -301,7 +311,7 @@ int PMLHash::update(const uint64_t &key, const uint64_t &value)
             if (p->kv_arr[i].key == key)
             {
                 p->kv_arr[i].value = value;
-                pmem_persist(start_addr, FILE_SIZE);
+                //pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
         }

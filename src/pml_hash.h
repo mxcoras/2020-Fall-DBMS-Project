@@ -10,7 +10,11 @@
 #define HASH_SIZE 16               // adjustable
 #define FILE_SIZE 1024 * 1024 * 16 // 16 MB adjustable
 
+//#define DEBUG
+
 using namespace std;
+
+static omp_lock_t lock;
 
 typedef struct metadata
 {
