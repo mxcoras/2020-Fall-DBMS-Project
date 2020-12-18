@@ -186,9 +186,8 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
     meta->total++;
     int flag = insert_bucket(table, en);
     if ((double)(meta->total) / (double)(TABLE_SIZE * meta->size) > 0.9)
+        #pragma omp critical
         split();
-    if (flag == 0)
-        pmem_persist(start_addr, FILE_SIZE);
     return flag;
 }
 

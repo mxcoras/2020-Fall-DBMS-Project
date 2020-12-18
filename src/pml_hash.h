@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <memory.h>
 #include <vector>
+#include <omp.h>
 
 #define TABLE_SIZE 16              // adjustable
 #define HASH_SIZE 16               // adjustable
