@@ -21,6 +21,7 @@ PMLHash::PMLHash(const char *file_path)
         overflow_addr = (void *)((uint64_t)start_addr + FILE_SIZE / 2);
         table_arr = (pm_table *)((uint64_t)start_addr + sizeof(metadata));
         meta = (metadata *)start_addr;
+        first_free_table = (pm_table *)overflow_addr;
         if (meta->size == 0)
             meta->size = 16;
     }
@@ -53,11 +54,12 @@ int PMLHash::insert_bucket(pm_table *addr, entry en)
         table = (pm_table *)table->next_offset;
     if (table->fill_num >= 16)
     {
-        uint64_t offset = (FILE_SIZE / 2) + (meta->overflow_num * sizeof(pm_table));
-        table->next_offset = (uint64_t)newOverflowTable(offset);
+        //uint64_t offset = (FILE_SIZE / 2) + (meta->overflow_num * sizeof(pm_table));
+        table->next_offset = (uint64_t)(find_first_free_table());
         if (table->next_offset == 0)
             return -1;
         table = (pm_table *)table->next_offset;
+        table->pm_flag = 1;
     }
     table->kv_arr[table->fill_num] = en;
     table->fill_num++;
@@ -78,6 +80,8 @@ void PMLHash::split()
     vector<entry> temp_arr;
     int hash_num = (1 << meta->level) * HASH_SIZE * 2;
     pm_table *split_table = &table_arr[meta->next];
+    pm_table *previous;
+    pm_table *next;
     while (true)
     {
         for (uint64_t i = 0; i < split_table->fill_num; i++)
@@ -105,17 +109,24 @@ void PMLHash::split()
         }
         if (split_table->next_offset == 0)
             break;
+        previous = split_table;
         split_table = (pm_table *)(split_table->next_offset);
+        previous->pm_flag = 0;
+        previous->next_offset = 0;
     }
     // fill the old table
     split_table = &table_arr[meta->next];
     split_table->fill_num = 0;
+    split_table->pm_flag = 1;
     for (size_t i = 0; i < temp_arr.size(); i++)
     {
         if (split_table->fill_num >= 16)
         {
-            split_table = (pm_table *)split_table->next_offset;
+            next = find_first_free_table();
+            split_table->next_offset=(uint64_t)next;
+            split_table = next;
             split_table->fill_num = 0;
+            split_table->pm_flag = 1;
         }
         split_table->kv_arr[split_table->fill_num++] = temp_arr[i];
     }
@@ -152,15 +163,25 @@ uint64_t PMLHash::hashFunc(const uint64_t &key, const size_t &hash_size)
  *                             to the start of the whole file
  * @return {pm_table*}       : the virtual address of new overflow hash table
  */
-pm_table *PMLHash::newOverflowTable(uint64_t &offset)
+/*pm_table *PMLHash::newOverflowTable(uint64_t &offset)
 {
     if (offset > (FILE_SIZE - sizeof(pm_table)))
         return NULL;
     pm_table *new_overflow_table = (pm_table *)((uint64_t)start_addr + offset);
     meta->overflow_num++;
     return new_overflow_table;
-}
+}*/
 
+pm_table * PMLHash::find_first_free_table(){
+    pm_table *p = (pm_table *)overflow_addr;
+    uint64_t i;
+    for(i=0;i<meta->overflow_num+1;i++){
+        if((p+i)->pm_flag==0)
+            break;
+    }
+    first_free_table=(p+i);
+    return first_free_table;
+}
 /**
  * PMLHash 
  * 
@@ -266,8 +287,13 @@ int PMLHash::remove(const uint64_t &key)
                 p->fill_num--;
                 meta->total--;
                 //the last pm_table is empty and need to be removed
-                if (p->fill_num == 0)
+                if (p->fill_num == 0){
                     previous_table->next_offset = 0;
+<<<<<<< HEAD
+=======
+                    p->pm_flag = 0;
+                }
+>>>>>>> feat: bucket space recovery
                 // pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }
