@@ -1,44 +1,41 @@
 #include "pml_hash.h"
+#include <fstream>
+#include <iostream>
+#include <dirent.h>
+#include <regex>
+#include <vector>
+#include <string.h>
+#include <cstdio>
+#include <time.h>
 
+vector <string> Filelist;
+int testNum;
+string dir_name = "../benchmark/";
+void getFileList(){
+    DIR *dir;
+    struct dirent *dirp;
+    //判断文件夹打开是否成功
+    if ((dir=opendir(dir_name.c_str()))==NULL){
+        cout << "fail to open " << dir_name << endl; 
+    }
+    //取出文件夹中的文件
+    while ((dirp = readdir(dir)) != NULL){
+        Filelist.push_back(dirp->d_name);
+    }
+    //关闭文件夹
+    closedir(dir);
+    //排序，使得read和write比例相同的read和load文件放在一起，
+    //方便后续执行
+    sort(Filelist.begin(),Filelist.end());
+    //load和run各占一半
+    testNum=Filelist.size()/2;
+    for (int i=0; i<testNum; i++){
+        cout << "[FIND FILE] " << Filelist[i*2] << " and " << Filelist[i*2+1] << endl;
+    }
+}
 int main()
 {
-    clock_t start_time = clock();
     PMLHash hash("/mnt/pmemdir/file");
-    int insert_failed = 0;
-    int search_failed = 0;
-    int update_failed = 0;
-    int remove_failed = 0;
-    cout << "start insert" << endl;
-    for (uint64_t i = 1; i <= 100000; i++)
-    {
-        if (hash.insert(i, i) == -1)
-            ++insert_failed;
-    }
-    cout << "insert failed: " << insert_failed << endl;
-    cout << "start search" << endl;
-    for (uint64_t i = 1; i <= 100000; i++)
-    {
-        uint64_t val;
-        if (hash.search(i, val) == -1)
-            ++search_failed;
-    }
-    cout << "search failed: " << search_failed << endl;
-    cout << "start update" << endl;
-    for (uint64_t i = 1; i <= 100000; i++)
-    {
-        if (hash.update(i, i + 1) == -1)
-            ++update_failed;
-    }
-    cout << "update failed: " << update_failed << endl;
-    cout << "start remove" << endl;
-    for (uint64_t i = 1; i <= 100000; i++)
-    {
-        if (hash.remove(i) == -1)
-            ++remove_failed;
-    }
-    cout << "remove failed: " << remove_failed << endl;
-    cout << "finished" << endl;
-    clock_t end_time = clock();
-    cout << "serial time: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << endl;
+    
     return 0;
 }
