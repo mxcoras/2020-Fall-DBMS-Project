@@ -33,6 +33,7 @@ typedef struct pm_table
     entry kv_arr[TABLE_SIZE]; // data entry array of hash table
     uint64_t fill_num;        // amount of occupied slots in kv_arr
     uint64_t next_offset;     // the file address of overflow hash table
+    uint64_t pm_flag;
 } pm_table;
 
 // persistent memory linear hash
@@ -43,11 +44,13 @@ private:
     void *overflow_addr; // the start address of overflow table array
     metadata *meta;      // virtual address of metadata
     pm_table *table_arr; // virtual address of hash table array
+    pm_table *first_free_table;
 
     int insert_bucket(pm_table *addr, entry en);
     void split();
     uint64_t hashFunc(const uint64_t &key, const size_t &hash_size);
     pm_table *newOverflowTable(uint64_t &offset);
+    pm_table *find_first_free_table();
 
 public:
     PMLHash() = delete;
