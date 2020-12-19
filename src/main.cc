@@ -136,7 +136,11 @@ void runFile(string filename, PMLHash& hash){
 }
 int main()
 {
-    PMLHash hash("/mnt/pmemdir/file");
-    
+    getFileList();
+    for (int i=0; i<testNum; i++){
+        PMLHash hash("/mnt/pmemdir/file");
+        loadFile(Filelist[2*i], hash);
+        runFile(Filelist[2*i+1], hash);
+    }
     return 0;
 }
