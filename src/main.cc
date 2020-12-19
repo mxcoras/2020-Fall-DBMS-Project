@@ -132,7 +132,7 @@ int main()
     //打开文件夹
     OpenDir();
     for (uint64_t i=0; i<Filelist.size()/2; i++){
-        cout << "Test " << i << endl;
+        cout << "Test " << i+1 << endl;
         cout << "operation with " << Filelist[2*i] << " and " << Filelist[2*i+1] << endl;
         //依次对每对load和run文件进行操作
         PMLHash hash("/mnt/pmemdir/file");
