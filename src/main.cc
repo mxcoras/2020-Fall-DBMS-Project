@@ -124,12 +124,15 @@ void runFile(string filename, PMLHash& hash){
     }
     time_t end = clock();
     file.close();
-    cout << "run finished, use time: " <<  fixed << setprecision(5) << ((double)(end-start))/CLOCKS_PER_SEC << endl;
+    double spendtime = ((double)(end-start))/CLOCKS_PER_SEC;
+    cout << "run finished, use time: " <<  fixed << setprecision(5) << spendtime << endl;
+    cout << "total number: " << totalNum << endl;
     cout << "insert/total: " <<  (double)insertNum/(double)totalNum << endl;
     cout << "read/total: " <<  (double)searchNum/(double)totalNum << endl;
     cout << "update/total: " <<  (double)updateNum/(double)totalNum << endl;
     cout << "remove/total: " <<  (double)removeNum/(double)totalNum << endl;
     cout << "fail/total: " << (double)failNum/(double)totalNum << endl;
+    cout << "OPS: " << (long long)(totalNum/spendtime) << endl;
 }
 int main()
 {
