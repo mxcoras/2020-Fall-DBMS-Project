@@ -33,6 +33,26 @@ void getFileList(){
         cout << "[FIND FILE] " << Filelist[i*2] << " and " << Filelist[i*2+1] << endl;
     }
 }
+void loadFile(string filename, PMLHash& hash){
+    //打开文件
+    fstream file;
+    file.open(dir_name + filename, ios::in);
+    
+    cout << "start to init with " << filename << endl;
+    string cmd,data;
+    time_t start = clock();
+    long long dataNum = 0;
+    //开始读取文件
+    while (!file.eof()){
+        //清空数据
+        cmd = data = "";
+        //读入操作符，若为空表示终止
+        file >> cmd;
+        if (cmd == "") break;
+        file >> data;
+        
+    }
+}
 int main()
 {
     PMLHash hash("/mnt/pmemdir/file");
