@@ -17,6 +17,7 @@ const string dir_name = "../benchmark/";
 
 void OpenDir()
 {
+<<<<<<< HEAD
     DIR *dir;
     struct dirent *mydirent;
     //判断文件夹打开是否成功
@@ -164,6 +165,45 @@ int main()
         Run(filelist[2 * i + 1], hash);
         //清空上个文件对的内容
         system("rm /mnt/pmemdir/file");
+=======
+    clock_t start_time = clock();
+    PMLHash hash("/mnt/pmemdir/file");
+    int insert_failed = 0;
+    int search_failed = 0;
+    int update_failed = 0;
+    int remove_failed = 0;
+    cout << "start insert" << endl;
+    for (uint64_t i = 1; i <= 100000; i++)
+    {
+        if (hash.insert(i, i) == -1)
+            ++insert_failed;
     }
+    cout << "insert failed: " << insert_failed << endl;
+    cout << "start search" << endl;
+    for (uint64_t i = 1; i <= 100000; i++)
+    {
+        uint64_t val;
+        if (hash.search(i, val) == -1)
+            ++search_failed;
+    }
+    cout << "search failed: " << search_failed << endl;
+    cout << "start update" << endl;
+    for (uint64_t i = 1; i <= 100000; i++)
+    {
+        if (hash.update(i, i + 1) == -1)
+            ++update_failed;
+    }
+    cout << "update failed: " << update_failed << endl;
+    cout << "start remove" << endl;
+    for (uint64_t i = 1; i <= 100000; i++)
+    {
+        if (hash.remove(i) == -1)
+            ++remove_failed;
+>>>>>>> fix: test main.cc
+    }
+    cout << "remove failed: " << remove_failed << endl;
+    cout << "finished" << endl;
+    clock_t end_time = clock();
+    cout << "serial time: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << endl;
     return 0;
 }
