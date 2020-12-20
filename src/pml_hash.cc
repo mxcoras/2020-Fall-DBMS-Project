@@ -1,5 +1,6 @@
 #include "pml_hash.h"
-
+#include <iostream>
+using namespace std;
 /**
  * PMLHash::PMLHash 
  * 
@@ -21,7 +22,7 @@ PMLHash::PMLHash(const char *file_path)
         overflow_addr = (void *)((uint64_t)start_addr + FILE_SIZE / 2);
         table_arr = (pm_table *)((uint64_t)start_addr + sizeof(metadata));
         meta = (metadata *)start_addr;
-        first_free_table = (pm_table *)overflow_addr;
+        overflow_arr = (pm_table *)overflow_addr;
         if (meta->size == 0)
             meta->size = 16;
     }
@@ -49,21 +50,27 @@ PMLHash::~PMLHash()
  */
 int PMLHash::insert_bucket(pm_table *addr, entry en)
 {
+    cout << "insert_bucket"<< endl;
+    cout << en.value <<endl; 
     pm_table *table = addr;
-    while (table->next_offset != 0)
+    
+    while (table->next_offset != 0){
         table = (pm_table *)table->next_offset;
+        //cout << (uint64_t)table << endl;
+    }
     if (table->fill_num >= 16)
     {
         //uint64_t offset = (FILE_SIZE / 2) + (meta->overflow_num * sizeof(pm_table));
         table->next_offset = (uint64_t)(find_first_free_table());
-        if (table->next_offset == 0)
-            return -1;
+        // if (table->next_offset == 0)
+        //     return -1;
         table = (pm_table *)table->next_offset;
         table->pm_flag = 1;
+        table->fill_num = 0;
     }
     table->kv_arr[table->fill_num] = en;
     table->fill_num++;
-    table->next_offset = 0;
+    //table->next_offset = 0;
     // pmem_persist(start_addr, FILE_SIZE);
     return 0;
 }
@@ -84,6 +91,7 @@ void PMLHash::split()
     pm_table *next;
     while (true)
     {
+        cout << "spliting" << endl;
         for (uint64_t i = 0; i < split_table->fill_num; i++)
         {
             uint64_t hash_value = hashFunc(split_table->kv_arr[i].key, hash_num);
@@ -107,30 +115,50 @@ void PMLHash::split()
                 temp_arr.push_back(en);
             }
         }
-        if (split_table->next_offset == 0)
+        
+        if (split_table->next_offset == 0) {
+            split_table->pm_flag = 0;
+            meta->overflow_num--;
+            if((uint64_t)split_table >= (uint64_t)overflow_addr) {
+            uint64_t t = (uint64_t)previous - (uint64_t)overflow_addr;
+            if(t < meta->index)
+                meta->index = t;
+        }
             break;
+        }
         previous = split_table;
         split_table = (pm_table *)(split_table->next_offset);
         previous->pm_flag = 0;
         previous->next_offset = 0;
+        meta->overflow_num--;
+        if((uint64_t)previous >= (uint64_t)overflow_addr) {
+            uint64_t t = (uint64_t)previous - (uint64_t)overflow_addr;
+            if(t < meta->index){
+                meta->index = t;
+                cout << t << endl;
+            }
+        }
     }
+
     // fill the old table
-    split_table = &table_arr[meta->next];
-    split_table->fill_num = 0;
-    split_table->pm_flag = 1;
+    // split_table = &table_arr[meta->next];
+    // split_table->fill_num = 0;
+    // split_table->pm_flag = 1;
+    pm_table* p = &table_arr[meta->next];
     for (size_t i = 0; i < temp_arr.size(); i++)
     {
-        if (split_table->fill_num >= 16)
-        {
-            next = find_first_free_table();
-            split_table->next_offset=(uint64_t)next;
-            split_table = next;
-            split_table->fill_num = 0;
-            split_table->pm_flag = 1;
-        }
-        split_table->kv_arr[split_table->fill_num++] = temp_arr[i];
+        // if (split_table->fill_num >= 16)
+        // {
+        //     next = find_first_free_table();
+        //     split_table->next_offset=(uint64_t)next;
+        //     split_table = next;
+        //     split_table->fill_num = 0;
+        //     split_table->pm_flag = 1;
+        // }
+        // split_table->kv_arr[split_table->fill_num++] = temp_arr[i];
+        insert_bucket(p, temp_arr[i]);
     }
-    split_table->next_offset = 0;
+    //split_table->next_offset = 0;
     meta->next++;
     meta->size++;
     if (meta->next == (uint64_t)((1 << meta->level) * HASH_SIZE))
@@ -153,7 +181,7 @@ void PMLHash::split()
  */
 uint64_t PMLHash::hashFunc(const uint64_t &key, const size_t &hash_size)
 {
-    return (key * 3) % hash_size;
+    return (key) % hash_size;
 }
 
 /**
@@ -163,24 +191,30 @@ uint64_t PMLHash::hashFunc(const uint64_t &key, const size_t &hash_size)
  *                             to the start of the whole file
  * @return {pm_table*}       : the virtual address of new overflow hash table
  */
-/*pm_table *PMLHash::newOverflowTable(uint64_t &offset)
-{
-    if (offset > (FILE_SIZE - sizeof(pm_table)))
-        return NULL;
-    pm_table *new_overflow_table = (pm_table *)((uint64_t)start_addr + offset);
-    meta->overflow_num++;
-    return new_overflow_table;
-}*/
+// pm_table *PMLHash::newOverflowTable(uint64_t &offset)
+// {
+//     if (offset > (FILE_SIZE - sizeof(pm_table)))
+//         return NULL;
+//     pm_table *new_overflow_table = (pm_table *)((uint64_t)start_addr + offset);
+//     meta->overflow_num++;
+//     return new_overflow_table;
+// }
 
 pm_table * PMLHash::find_first_free_table(){
-    pm_table *p = (pm_table *)overflow_addr;
-    uint64_t i;
-    for(i=0;i<meta->overflow_num+1;i++){
-        if((p+i)->pm_flag==0)
-            break;
+    pm_table *ans = (pm_table *)overflow_addr + meta->index;
+    overflow_arr[meta->index].pm_flag = 1;
+    for(uint64_t i = 1; i < meta->overflow_num; i++) {
+        //no free overflow bucket;
+        if(meta->index + i > (FILE_SIZE / 2) / sizeof(pm_table)) {
+            perror("overflow tables are full-filled");
+            exit(1);
+        }
+        //find out a free bucket;
+        if(overflow_arr[meta->index + i].pm_flag == 0) {
+            meta->index = meta->index + i;
+            return ans;}
     }
-    first_free_table=(p+i);
-    return first_free_table;
+    return ans;
 }
 /**
  * PMLHash 
@@ -288,8 +322,16 @@ int PMLHash::remove(const uint64_t &key)
                 meta->total--;
                 //the last pm_table is empty and need to be removed
                 if (p->fill_num == 0){
+                    meta->overflow_num--;
                     previous_table->next_offset = 0;
                     p->pm_flag = 0;
+                    //if the removed table is overflow table
+                    //compare with the first free overflow table index 
+                    if((uint64_t)p >= (uint64_t)overflow_addr) {
+                        uint64_t t = (uint64_t)p - (uint64_t)overflow_addr;
+                        if(t < meta->index)
+                           meta->index = t;
+                    }
                 }
                 // pmem_persist(start_addr, FILE_SIZE);
                 return 0;
