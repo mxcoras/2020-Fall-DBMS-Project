@@ -75,8 +75,8 @@ void Load(string filename, PMLHash &hash)
     }
     time_t end = clock();
     file.close();
-    double cost = ((double)(end - start)) / CLOCKS_PER_SEC;
-    cout << "Finished, use time: " << fixed << setprecision(5) << cost << "s" << endl;
+    double cost = ((double)(end - start)) / CLOCKS_PER_SEC * 1000;
+    cout << "Finished, use time: " << fixed << setprecision(5) << cost << "ms" << endl;
     cout << "total number: " << data_num << endl;
     cout << "fail number: " << fail_num << endl;
     cout << endl;
@@ -139,13 +139,13 @@ void Run(string filename, PMLHash &hash)
     time_t end = clock();
     file.close();
     double cost = ((double)(end - start)) / CLOCKS_PER_SEC;
-    cout << "Finished, use time: " << fixed << setprecision(5) << cost << "s" << endl;
+    cout << "Finished, use time: " << fixed << setprecision(5) << cost * 1000 << "ms" << endl;
     cout << "total number: " << total_num << endl;
-    cout << "insert/total: " << (double)insert_num / (double)total_num << endl;
-    cout << "read/total: " << (double)search_num / (double)total_num << endl;
-    cout << "update/total: " << (double)update_num / (double)total_num << endl;
-    cout << "remove/total: " << (double)remove_num / (double)total_num << endl;
-    cout << "fail/total: " << (double)fail_num / (double)total_num << endl;
+    cout << "insert number: " << insert_num << endl;
+    cout << "read number: " << search_num << endl;
+    cout << "update number: " << update_num << endl;
+    cout << "remove number: " << remove_num << endl;
+    cout << "fail number: " << fail_num << endl;
     cout << "OPS: " << (uint64_t)(total_num / cost) << endl;
     cout << endl;
 }
