@@ -129,23 +129,10 @@ void PMLHash::split()
         previous->next_offset = 0;
         
     }
-
-    // fill the old table
-    // split_table = &table_arr[meta->next];
-    // split_table->fill_num = 0;
-    // split_table->pm_flag = 1;
+    //fill old table
     pm_table* p = &table_arr[meta->next];
     for (size_t i = 0; i < temp_arr.size(); i++)
     {
-        // if (split_table->fill_num >= 16)
-        // {
-        //     next = find_first_free_table();
-        //     split_table->next_offset=(uint64_t)next;
-        //     split_table = next;
-        //     split_table->fill_num = 0;
-        //     split_table->pm_flag = 1;
-        // }
-        // split_table->kv_arr[split_table->fill_num++] = temp_arr[i];
         insert_bucket(p, temp_arr[i]);
     }
     //split_table->next_offset = 0;
