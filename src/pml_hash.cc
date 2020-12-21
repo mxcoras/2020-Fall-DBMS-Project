@@ -307,21 +307,12 @@ int PMLHash::remove(const uint64_t &key)
                 meta->total--;
                 //the last pm_table is empty and need to be removed
                 if (p->fill_num == 0){
-<<<<<<< HEAD
-                    previous_table->next_offset = 0;
-<<<<<<< HEAD
-=======
-                    p->pm_flag = 0;
-                }
->>>>>>> feat: bucket space recovery
-=======
                     if((uint64_t)p >= (uint64_t)overflow_addr)
                        meta->overflow_num--;
                     meta->total--;
                     previous_table->next_offset = 0;
                     p->pm_flag = 0;
                 }
->>>>>>> 7832c6cbf09590b7e5a8186341d6d65504ec82c8
                 // pmem_persist(start_addr, FILE_SIZE);
                 return 0;
             }

@@ -165,9 +165,5 @@ int main()
         //清空上个文件对的内容
         system("rm /mnt/pmemdir/file");
     }
-    cout << "remove failed: " << remove_failed << endl;
-    cout << "finished" << endl;
-    clock_t end_time = clock();
-    cout << "serial time: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << endl;
     return 0;
 }
