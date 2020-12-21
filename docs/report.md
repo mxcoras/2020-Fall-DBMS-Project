@@ -51,7 +51,7 @@ typedef struct pm_table
 } pm_table;
 ```
 
-这个部分代表的是哈希表的数据结构，其中kv_arr[TABLE_SIZE]为存储键值对的struct数组，而fill_num代表此哈希表内有多少个元素，next_offset相当于溢出桶的位置，pm_flag是溢出桶空间回收的相关变量，用来分辨此桶是否为空闲的，空闲时为0，占用时为1
+这个部分代表的是哈希表的数据结构，其中kv_arr[TABLE_SIZE]为存储键值对的struct数组，而fill_num代表此哈希表内有多少个元素，next_offset相当于溢出桶的位置，pm_flag是**溢出桶空间回收**的相关变量，用来分辨此桶是否为空闲的，空闲时为0，占用时为1
 
 ---
 接着是主要的实现部分PMLHash
@@ -95,7 +95,7 @@ pm_table *overflow_arr;
 //overflow_arr指向的是溢出哈希表的起始位置
 ```
 ---
-接下来介绍私有函数的部分
+接下来介绍**私有函数**的部分
 
 ---
 `int insert_bucket(pm_table *addr, entry en)`  
@@ -201,7 +201,7 @@ void PMLHash::split()
     // pmem_persist(start_addr, FILE_SIZE);
 }
 ```
-该函数用来在负载因子`((double)(meta->total) / (double)(TABLE_SIZE * meta->size)`大于0.9的情况下触发分裂操作，使用轮询的方式来进行分裂，meta的next成员代表的是下一个要被分裂的桶，在进行分裂时，计算出这个桶中元素将要被分裂到的两个桶的下标（包括原来所在的该桶以及一个新的桶），将分到新桶的元素插入到新桶当中，而将要保留在原来这个桶的元素先压入到一个temp_arr的vector当中，同时将原来这个桶的溢出桶全部释放，即将pm_flag置0，next_offset置0，再使用insert_bucket函数来插入到哈希桶中。
+该函数用来在负载因子`((double)(meta->total) / (double)(TABLE_SIZE * meta->size)`大于0.9的情况下触发分裂操作，使用**轮询**的方式来进行分裂，meta的next成员代表的是下一个要被分裂的桶，在进行分裂时，计算出这个桶中元素将要被分裂到的两个桶的下标（包括原来所在的该桶以及一个新的桶），将分到新桶的元素插入到新桶当中，而将要保留在原来这个桶的元素先压入到一个temp_arr的vector当中，同时将原来这个桶的溢出桶全部释放，即将pm_flag置0，next_offset置0，再使用insert_bucket函数来插入到哈希桶中。
 
 接着是public部分的函数，主要介绍增删查改的函数：
 ```
@@ -225,7 +225,7 @@ int PMLHash::insert(const uint64_t &key, const uint64_t &value)
 }
 ```
 
-插入的操作是首先找到插入的桶的位置，这里由于可能已经分裂过一次了，所以需要比较hash值和下一个要分裂的桶的下标，如果小于下标则是已经分裂过了，要用更新后的hash_size来重新确定这一个元素应该插入的桶，否则仍然插入原来计算出的hash值对应的桶，在找到了要插入的桶之后调用insert_bucket函数，再判断负载因子`((double)(meta->total) / (double)(TABLE_SIZE * meta->size)`是否大于0.9，大于则触发分裂操作。
+插入的操作是首先找到插入的桶的位置，这里由于可能已经分裂过一次了，所以需要比较hash值和下一个要分裂的桶的下标，**如果小于下标则是已经分裂过了，要用更新后的hash_size来重新确定这一个元素应该插入的桶**，否则仍然插入原来计算出的hash值对应的桶，在找到了要插入的桶之后调用insert_bucket函数，再判断负载因子`((double)(meta->total) / (double)(TABLE_SIZE * meta->size)`是否大于0.9，大于则触发分裂操作。
 
 ---
 
@@ -347,7 +347,23 @@ int PMLHash::update(const uint64_t &key, const uint64_t &value)
 -
 
 ## YCSB测试
+>YCSB是雅虎开源的一款通用的性能测试工具。主要用在云端或服务器端的性能评测分析，可以对各类非关系型数据库产品进行相关的性能测试和评估。
+>>给定的数据集每行操作由操作类型和数据组成，由于项目使用8字节键值，所以在读取数据的时候直接将前8字节的数据复制进去即可，键和值内容相同。
+>>>本项目中测试为benchmark，数据文件在benchmark文件夹下
+1.10w-rw-0-100-load代表数据量10万，读写比0比100，是load阶段的数据集
+2.运行流程分load和run，load用于初始化数据库，run为真正运行阶段。
+   load：初始化数据库，只有插入操作。
+   run：运行性能测试，有增删查改操作。
 
+实现了OpenDir，Load，Run三个函数:
+
+OpenDir用来打开benchmark文件夹并且列出需要执行的数据文件的名称
+
+Load函数读取文件数据并进行插入操作，统计插入的个数并且计算所需时间
+
+Run函数通过读入行的内容来判断要执行什么操作，同时对执行四种操作的次数计数，并计算总体的执行时间和OPS
+
+main函数在执行了一组Load和Run操作之后需要删除NVM文件来保证结果的正确以及程序的正常运行
 ### 测试流程
 
 - 首先将文件夹benchmark中的文件名读入，然后将属于同个读写比的load和run文件放在一起执行。在load阶段全为插入操作。在run阶段每读入一条语句，通过操作符来进行对应操作，记录是否操作失败、操作数、消耗时间。
