@@ -13,9 +13,12 @@
 -
 
 ## 代码展示
-### 底层设计
-本次实验的主体部分包含在pml_hash.cc和pml_hash.h两个文件当中。构建了整个底层部分，负责对数据的操作。
-`**pml_hash.h**`当中是本次实验的数据结构：
+### 底层设计  
+
+本次实验的主体部分包含在pml_hash.cc和pml_hash.h两个文件当中。构建了整个底层部分，负责对数据的操作。  
+
+`pml_hash.h`当中是本次实验的数据结构：
+
 ---
 ```
 typedef struct metadata
@@ -28,10 +31,15 @@ typedef struct metadata
     uint64_t index;        // the index of the first free overflow bucket;
 } metadata;
 ```
+
 这个结构的功能主要是用来存储整个线性哈希的元数据，total代表表中总共有多少个元素，index代表下一个空溢出桶的下标。
+
 ---
+
 `entry:uint64_t key,uint64_t value `
+
 这个结构为哈希表中的键值
+
 ---
 ```
 typedef struct pm_table
@@ -42,6 +50,7 @@ typedef struct pm_table
     uint64_t pm_flag;         // 1 -- occupied, 0 -- available
 } pm_table;
 ```
+
 这个部分代表的是哈希表的数据结构，其中kv_arr[TABLE_SIZE]为存储键值对的struct数组，而fill_num代表此哈希表内有多少个元素，next_offset相当于溢出桶的位置，pm_flag是溢出桶空间回收的相关变量，用来分辨此桶是否为空闲的，空闲时为0，占用时为1
 ---
 接着是主要的实现部分PMLHash
