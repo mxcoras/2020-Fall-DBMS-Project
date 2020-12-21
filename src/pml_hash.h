@@ -18,6 +18,7 @@ typedef struct metadata
     uint64_t next;         // the index of the next split hash table
     uint64_t overflow_num; // amount of overflow hash tables
     uint64_t total;        // the number of total elements
+    uint64_t index;        // the index of the first free overflow bucket;
 } metadata;
 
 // data entry of hash table
@@ -33,7 +34,7 @@ typedef struct pm_table
     entry kv_arr[TABLE_SIZE]; // data entry array of hash table
     uint64_t fill_num;        // amount of occupied slots in kv_arr
     uint64_t next_offset;     // the file address of overflow hash table
-    uint64_t pm_flag;
+    uint64_t pm_flag;         // 1 -- occupied, 0 -- available
 } pm_table;
 
 // persistent memory linear hash
@@ -44,7 +45,7 @@ private:
     void *overflow_addr; // the start address of overflow table array
     metadata *meta;      // virtual address of metadata
     pm_table *table_arr; // virtual address of hash table array
-    pm_table *first_free_table;
+    pm_table *overflow_arr; // virtual address of overflow table array
 
     int insert_bucket(pm_table *addr, entry en);
     void split();
